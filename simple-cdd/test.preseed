@@ -89,8 +89,8 @@ d-i netcfg/wireless_wep string
 # intend to perform the remainder of the installation manually.
 #d-i anna/choose_modules string network-console
 #d-i network-console/authorized_keys_url string http://10.0.0.1/openssh-key
-d-i network-console/password password thedoerproject
-d-i network-console/password-again password thedoerproject
+#d-i network-console/password password r00tme
+#d-i network-console/password-again password r00tme
 
 ### Mirror settings
 # If you select ftp, the mirror/country string does not need to be set.
@@ -113,8 +113,8 @@ d-i mirror/http/proxy string
 #d-i passwd/make-user boolean false
 
 # Root password, either in clear text
-d-i passwd/root-password password thedoerproject
-d-i passwd/root-password-again password thedoerproject
+#d-i passwd/root-password password r00tme
+#d-i passwd/root-password-again password r00tme
 # or encrypted using an MD5 hash.
 #d-i passwd/root-password-crypted password [MD5 hash]
 
@@ -287,8 +287,8 @@ d-i partman/confirm_nooverwrite boolean true
 
 ### Apt setup
 # You can choose to install non-free and contrib software.
-d-i apt-setup/non-free boolean true
-d-i apt-setup/contrib boolean true
+#d-i apt-setup/non-free boolean true
+#d-i apt-setup/contrib boolean true
 # Uncomment this if you don't want to use a network mirror.
 #d-i apt-setup/use_mirror boolean false
 # Select which update services to use; define the mirrors to be used.
@@ -329,7 +329,7 @@ d-i apt-setup/contrib boolean true
 # installed, and what software you use. The default is not to report back,
 # but sending reports helps the project determine what software is most
 # popular and include it on CDs.
-popularity-contest popularity-contest/participate boolean false
+#popularity-contest popularity-contest/participate boolean false
 
 ### Boot loader installation
 # Grub is the default boot loader (for x86). If you want lilo installed
