@@ -17,5 +17,5 @@ RUN apt-get install docker-ce docker-ce-cli containerd.io -y
 RUN apt-get install python3 python3-pip git -y
 RUN apt-get install simple-cdd -y
 WORKDIR /project
-COPY . /project/DOER_OS
+COPY . /project
 CMD ["bash"]
