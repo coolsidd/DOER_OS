@@ -81,7 +81,7 @@ d-i netcfg/wireless_wep string
 # If non-free firmware is needed for the network or other hardware, you can
 # configure the installer to always try to load it, without prompting. Or
 # change to false to disable asking.
-#d-i hw-detect/load_firmware boolean true
+d-i hw-detect/load_firmware boolean true
 
 ### Network console
 # Use the following settings if you wish to make use of the network-console
@@ -89,8 +89,8 @@ d-i netcfg/wireless_wep string
 # intend to perform the remainder of the installation manually.
 #d-i anna/choose_modules string network-console
 #d-i network-console/authorized_keys_url string http://10.0.0.1/openssh-key
-d-i network-console/password password thedoerproject
-d-i network-console/password-again password thedoerproject
+#d-i network-console/password password thedoerproject
+#d-i network-console/password-again password thedoerproject
 
 ### Mirror settings
 # If you select ftp, the mirror/country string does not need to be set.
@@ -119,11 +119,11 @@ d-i passwd/root-password-again password thedoerproject
 #d-i passwd/root-password-crypted password [MD5 hash]
 
 # To create a normal user account.
-#d-i passwd/user-fullname string Debian User
-#d-i passwd/username string debian
+d-i passwd/user-fullname string doer
+d-i passwd/username string doer
 # Normal user's password, either in clear text
-#d-i passwd/user-password password insecure
-#d-i passwd/user-password-again password insecure
+d-i passwd/user-password password thedoerproject
+d-i passwd/user-password-again password thedoerproject
 # or encrypted using an MD5 hash.
 #d-i passwd/user-password-crypted password [MD5 hash]
 # Create the first user with the specified UID instead of the default.
@@ -163,7 +163,7 @@ d-i clock-setup/ntp boolean true
 # - regular: use the usual partition types for your architecture
 # - lvm:     use LVM to partition the disk
 # - crypto:  use LVM within an encrypted partition
-d-i partman-auto/method string lvm
+d-i partman-auto/method string regular
 
 # If one of the disks that are going to be automatically partitioned
 # contains an old LVM configuration, the user will normally receive a
@@ -275,6 +275,7 @@ d-i partman/confirm_nooverwrite boolean true
 # falling back to UUIDs.
 #d-i partman/mount_style select uuid
 
+#d-i in-target export DEBIAN_FRONTEND=noninteractive
 ### Base system installation
 # Configure APT to not install recommended packages by default. Use of this
 # option can result in an incomplete system and should only be used by very
@@ -320,7 +321,7 @@ d-i apt-setup/contrib boolean true
 #tasksel tasksel/first multiselect standard, web-server, kde-desktop
 
 # Individual additional packages to install
-#d-i pkgsel/include string openssh-server build-essential
+d-i pkgsel/include string openssh-server build-essential
 # Whether to upgrade packages after debootstrap.
 # Allowed values: none, safe-upgrade, full-upgrade
 #d-i pkgsel/upgrade select none
@@ -380,7 +381,7 @@ d-i grub-installer/with_other_os boolean true
 #d-i finish-install/keep-consoles boolean true
 
 # Avoid that last message about the install being complete.
-d-i finish-install/reboot_in_progress note
+#d-i finish-install/reboot_in_progress note
 
 # This will prevent the installer from ejecting the CD during the reboot,
 # which is useful in some situations.
@@ -411,6 +412,8 @@ d-i finish-install/reboot_in_progress note
 # here's a way to run any shell command you'd like inside the installer,
 # automatically.
 
+#d-i preseed/early_command string export DEBIAN_FRONTEND=noninteractive
+#d-i preseed/late_command string DEBIAN_FRONTEND=noninteractive apt-install freedombox_setup
 # This first command is run as early as possible, just after
 # preseeding is read.
 #d-i preseed/early_command string anna-install some-udeb
@@ -424,4 +427,4 @@ d-i finish-install/reboot_in_progress note
 # directly, or use the apt-install and in-target commands to easily install
 # packages and run commands in the target system.
 #d-i preseed/late_command string apt-install zsh; in-target chsh -s /bin/zsh
-
+d-i preseed/late_command string cp -f ./cdrom/DOER_OS.zip /target/home/doer

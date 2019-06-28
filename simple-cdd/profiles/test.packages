@@ -1,4 +1,27 @@
 xfce4
+xfce4-goodies
 vim
 freedombox-setup
-x-window-system
+# window manager
+# icewm
+
+# x-teminal-emulator
+# rxvt-unicode
+
+# menus up to date
+menu
+
+# login manager
+# xdm
+lightdm
+
+
+# includes startx
+xbase-clients
+
+# X
+xorg
+
+# workaround http://bugs.debian.org/405639
+xserver-xorg-input-all
+xserver-xorg-video-all
