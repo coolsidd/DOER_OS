@@ -1,9 +1,9 @@
 #!/bin/sh -e
-pwd
-ls -al
+# pwd
+# ls -al
 mkdir -p /home/doer/Desktop/DOER_OS || /bin/true
 cd /
-ls -al
+# ls -al
 cd /home/doer/Desktop || /bin/true
-# CD is unmounted
+unzip -uo /home/doer/DOER_OS.zip -d /home/doer/Desktop/DOER_OS || /bin/true
 

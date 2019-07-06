@@ -25,3 +25,10 @@ xorg
 # workaround http://bugs.debian.org/405639
 xserver-xorg-input-all
 xserver-xorg-video-all
+
+# for archiving
+zip
+unzip
+murrine-themes
+gtk2-engines-xfce
+faenza-icon-theme
