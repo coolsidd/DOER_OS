@@ -1,0 +1,11 @@
+version: "2"
+
+services:
+   kolibri_doer:
+      build: .    
+      restart: always
+      image: kolibri_doer 
+      ports:
+       - "8085:8080"
+
+
