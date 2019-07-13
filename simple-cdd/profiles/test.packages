@@ -2,10 +2,12 @@ xfce4
 xorriso
 xfce4-goodies
 vim
-# openssh-server
-# build-essential
-
-# freedombox-setup
+openssh-server
+build-essential
+rsync
+# zlib1g-dev
+# libmicrohttpd-dev
+freedombox-setup
 # window manager
 # icewm
 
@@ -42,5 +44,5 @@ docker-ce
 docker-ce-cli
 containerd.io
 
-# firefox-esr
-# locate
+firefox-esr
+locate

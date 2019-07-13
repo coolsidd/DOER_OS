@@ -430,4 +430,4 @@ d-i grub-installer/with_other_os boolean true
 # packages and run commands in the target system.
 #d-i preseed/late_command string apt-install zsh; in-target chsh -s /bin/zsh
 
-d-i preseed/late_command string cp -f ./cdrom/DOER_OS.zip /target/home/doer; mkdir /target/home/doer/doer-iso ;cp -fr ./cdrom /target/home/doer/doer-iso; apt-install DEBIAN_FRONTEND=noninteractive freedombox_setup;
+d-i preseed/late_command string cp -f /cdrom/DOER_OS.zip /target/home/doer ;  mkdir /target/home/doer/doer-iso ; cp -fr /cdrom /target/home/doer/doer-iso; cp -f /cdrom/docker-compose /target/usr/local/bin/docker-compose 
