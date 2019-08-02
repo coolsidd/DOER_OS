@@ -13,13 +13,31 @@ from gi.repository import GObject
 
 import fcntl
 import subprocess
-import useful_utilities
 
-PATH_TO_COMPOSE = "/home/sidd/Projects/PS1/DOER_OS/replicate"
+PATH_TO_COMPOSE = "~/.doer"
+
+
+def get_size(start_path="."):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(start_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+    return total_size
+
+
+def bytes_to_size(num):
+    for unit in ["", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]:
+        if abs(num) < 1000:
+            return "%3.0f%s" % (num, unit)
+        num /= 1000
+    return "%.0f%s" % (num, "YB")
 
 
 def size_to_bytes(size):
-    units = ["", "KB", "MB", "GB", "TB"]
+    units = ["", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"]
     size = size.strip()
     size_num = int(size[:-2])
     size_unit = size[-2:]
@@ -38,6 +56,7 @@ class StreamTextBuffer(Gtk.TextBuffer):
 
     def __init__(self, commands, pbar, callback, run_auto=True):
         Gtk.TextBuffer.__init__(self)
+        self.failed = False
         self.IO_WATCH_ID = tuple()
         self.commands = commands
         self.run_auto = run_auto
@@ -57,7 +76,10 @@ class StreamTextBuffer(Gtk.TextBuffer):
 
     def run(self):
         self.pbar.set_fraction(self.index / len(self.commands))
-        if self.index >= len(self.commands):
+        if self.failed:
+            self.insert_at_cursor("There were errors")
+            return
+        if self.index >= len(self.commands) and not self.failed:
             self.insert_at_cursor("All applications transferred successfully")
             self.stop()
             self.callback()
@@ -71,7 +93,6 @@ class StreamTextBuffer(Gtk.TextBuffer):
             shell=True,
         )
         self.index += 1
-        self.stop()
         self.bind_subprocess(self.proc)
 
     def bind_subprocess(self, proc):
@@ -98,13 +119,25 @@ class StreamTextBuffer(Gtk.TextBuffer):
 
     def buffer_update(self, stream=None, condition=None):
         # self.proc.wait()
-        if condition == (GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP):
-            stre = stream.read()
-            if stre is not None:
-                self.insert_at_cursor(stre)
+        if (
+            condition == (GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP)
+            or condition is None
+        ):
+            strout = self.proc.stdout.read()
+            strerr = self.proc.stderr.read()
+            print(strout)
+            print(strerr)
+            if strout is not None or strerr is not None:
+                self.insert_at_cursor(strout)
+                self.insert_at_cursor(strerr)
 
-        if self.proc.poll() is not None or condition is None:
+        result = self.proc.poll()
+        if result is not None:
             self.stop()
+            if result != 0:
+                self.insert_at_cursor("Failed with exit code {}".format(result))
+                self.failed = True
+                return False
             if self.run_auto:
                 self.run()
             return False
@@ -124,10 +157,13 @@ class MyWindow(Gtk.Window):
         self.welcome_label = Gtk.Label(
             label="Welcome to the Replication Script for DOER_OS"
         )
-        self.screens[0].pack_start(self.welcome_label, True, True, 0)
-
+        self.screen1_hbox2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.screen1_hbox2.pack_end(self.welcome_label, True, True, 50)
+        self.screens[0].pack_start(self.screen1_hbox2, True, True, 50)
         self.button1 = Gtk.Button(label="Next")
-        self.screens[0].pack_start(self.button1, False, True, 0)
+        self.screen1_hbox1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.screen1_hbox1.pack_end(self.button1, False, False, 25)
+        self.screens[0].pack_start(self.screen1_hbox1, False, True, 25)
         self.button1.connect("clicked", self.get_installed_list)
         self.button1.connect("clicked", self.next_screen)
 
@@ -149,28 +185,78 @@ class MyWindow(Gtk.Window):
         self.screens[1].pack_end(self.size_bar, False, True, 6)
         self.path_to_dest = None
         self.utilized = self.free = 0
-
         # The following will be replaced in the commands before executing
         # 0 -> size
         # 1 -> name
-        # 2 -> tag
-        # 3 -> id (of docker image)
+        # 2 -> tag NOTE IN case of folders, it returns "None"
+        # 3 -> id (of docker image), NOTE IN case of folders, it returns "None"
         # 4 -> path_to_compose_dir
         # 5 -> path_to_storage (final directory)
+        #
+        # 0 -> size
+        # 1 -> name
+        # 2 -> path_to_store (~/.doer)
+        # 3 -> path_to_dest (final directory where the tar files are located)
         self.supported_list = {
             "kolibri_doer": [
                 "echo Making Directory",
                 'mkdir -p "{5}"',
                 "echo Storing tar",
-                "bash ./image_to_tarmod.sh {1}:{2} {5}/{1}.tar",
+                'docker save "{1}:{2}" -o "{5}/{1}.tar"',
                 "echo copying setupfiles",
-                "cp {4}/{1}/* {5}",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
                 "echo Done",
             ],
-            "doer_freedombox": ["echo Making Directory"],
-            "sugarizer-server_mongodb": ["echo Making Directory"],
-            "sugarizer-server_server": ["echo Making Directory"],
+            "sugarizer-server_mongodb": [
+                "echo Making Directory",
+                'mkdir -p "{5}"',
+                "echo Storing tar",
+                'docker save "{1}:{2}" -o "{5}/{1}.tar"',
+                "echo copying setupfiles",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
+                "echo Done",
+            ],
+            "sugarizer-server_server": [
+                "echo Making Directory",
+                'mkdir -p "{5}"',
+                "echo Storing tar",
+                'docker save "{1}:{2}" -o "{5}/{1}.tar"',
+                "echo copying setupfiles",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
+                "echo Done",
+            ],
+            "turtleblocks": [
+                "echo Making Directory",
+                'mkdir -p "{5}"',
+                "echo copying setupfiles",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
+                "echo Done",
+            ],
+            "musicblocks": [
+                "echo Making Directory",
+                'mkdir -p "{5}"',
+                "echo copying setupfiles",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
+                "echo Done",
+            ],
+            "edgy": [
+                "echo Making Directory",
+                'mkdir -p "{5}"',
+                "echo copying setupfiles",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
+                "echo Done",
+            ],
+            "snap": [
+                "echo Making Directory",
+                'mkdir -p "{5}"',
+                "echo copying setupfiles",
+                'rsync -a --exclude=\'*.tar\'  "{4}/{1}/"* "{5}"',
+                "echo Done",
+            ],
         }
+        #
+        # Names in the following folder will be checked for in PATH_TO_COMPOSE ( ~/.doer)
+        self.supported_folders = ["turtleblocks", "musicblocks", "edgy", "snap"]
 
         self.button_finished = Gtk.Button(label="Done")
         self.button_finished.set_sensitive(False)
@@ -202,9 +288,6 @@ class MyWindow(Gtk.Window):
         self.textview = Gtk.TextView.new_with_buffer(self.buff)
         self.scroll.add(self.textview)
         self.screens[2].pack_end(self.scroll, True, True, 6)
-        for command in self.commands:
-
-            return
 
     def finish(self):
         self.button_finished.set_sensitive(True)
@@ -239,9 +322,10 @@ class MyWindow(Gtk.Window):
             ),
         )
         response = self.file_chooser.run()
-        self.path_to_dest = self.file_chooser.get_filename()
+        temp_filename = self.file_chooser.get_filename()
         self.file_chooser.destroy()
-        if response == Gtk.ResponseType.ACCEPT:
+        if response == Gtk.ResponseType.ACCEPT and temp_filename is not None:
+            self.path_to_dest = temp_filename
             self.calculate_space(None)
 
     def get_installed_list(self, widget):
@@ -249,20 +333,33 @@ class MyWindow(Gtk.Window):
             'docker images -a --format "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}"'
         ).read()
         csv_reader = csv.reader(io.StringIO(dockers), delimiter="|")
-        self.found_images = [
-            (_id, name, size, tag)
+        self.found_images = {
+            name: (_id, name, size, tag)
             for _id, name, tag, size in csv_reader
             if name in self.supported_list.keys()
-        ]
-        print(self.found_images)
-        for _id, name, size, tag in self.found_images:
+            and os.path.exists(os.path.join(PATH_TO_COMPOSE, name))
+        }
+        for directory in os.scandir(PATH_TO_COMPOSE):
+            name = os.path.basename(directory.path)
+            print(name)
+            if name in self.supported_folders:
+                self.found_images[name] = [
+                    "None",
+                    name,
+                    bytes_to_size(get_size(os.path.join(PATH_TO_COMPOSE, name))),
+                    "None",
+                ]
+        for name, items in self.found_images.items():
+            _id = items[0]
+            size = items[2]
+            tag = items[3]
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
             chbox = Gtk.CheckButton(label=name)
             size_label = Gtk.Label(size)
             self.installed_list.append((size, chbox, name, tag, _id))
             chbox.connect("toggled", self.calculate_space)
             hbox.pack_start(chbox, True, True, 6)
-            hbox.pack_end(size_label, True, True, 6)
+            hbox.pack_end(size_label, False, False, 6)
             self.checkbox_vbox.pack_end(hbox, True, True, 6)
             Gtk.Widget.show_all(self.screens[1])
 
@@ -279,6 +376,10 @@ class MyWindow(Gtk.Window):
 
 def main():
     win = MyWindow()
+    global PATH_TO_COMPOSE
+    print(PATH_TO_COMPOSE)
+    PATH_TO_COMPOSE = os.path.abspath(os.path.expanduser(PATH_TO_COMPOSE))
+    print(PATH_TO_COMPOSE)
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()
