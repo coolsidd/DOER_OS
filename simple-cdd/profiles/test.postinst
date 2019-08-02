@@ -6,4 +6,9 @@ cd /
 # ls -al
 cd /home/doer/Desktop || /bin/true
 unzip -uo /home/doer/DOER_OS.zip -d /home/doer/Desktop/DOER_OS || /bin/true
-
+xorriso -as mkisofs -r -checksum_algorithm_iso md5,sha1 -V 'Debian 9.9 amd64 1' -o /home/doer/debian.iso -J -J -joliet-long -cache-inodes -isohybrid-mbr /home/doer/doer-iso/cdrom/isohdpfx.bin -b isolinux/isolinux.bin -c isolinux/boot.cat -boot-load-size 4 -boot-info-table -no-emul-boot -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat -isohybrid-apm-hfsplus /home/doer/doer-iso/cdrom/ /home/doer/doer-iso/cdrom/  || /bin/true
+rm -rf /home/doer/doer-iso || /bin/true
+eval `dbus-launch --sh-syntax` || /bin/true
+xfconf-query -c xsettings -p /Net/IconThemeName -s "Faenza" || /bin/true
+xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "/home/doer/Desktop/DOER_OS/wallpaper.png" || /bin/true
+/usr/lib/freedombox/setup || /bin/true

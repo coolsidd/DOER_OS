@@ -1,6 +1,12 @@
 xfce4
+xorriso
 xfce4-goodies
 vim
+openssh-server
+build-essential
+rsync
+# zlib1g-dev
+# libmicrohttpd-dev
 freedombox-setup
 # window manager
 # icewm
@@ -29,6 +35,14 @@ xserver-xorg-video-all
 # for archiving
 zip
 unzip
+
 murrine-themes
 gtk2-engines-xfce
 faenza-icon-theme
+
+docker-ce
+docker-ce-cli
+containerd.io
+
+firefox-esr
+locate

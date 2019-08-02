@@ -1,0 +1,22 @@
+* Creating package list
+#+BEGIN_SRC bash
+dpkg --get-selections > package-list
+
+grep -e '\<install$' package-list | awk '{print $1};' >profiles/my-profile.downloads
+
+#+END_SRC
+
+* Creating a new gpg-key
+#+BEGIN_SRC bash
+cp -a /usr/share/keyrings/debian-archive-keyring.gpg /home/DOER_OS/new-debian-archive-keyring.gpg
+gpg --no-default-keyring --keyring=/home/DOER_OS/new-debian-archive-keyring.gpg --delete-key "6FB2A1C265FFB764" --yes
+
+simple-cdd --conf profiles/test.conf --profiles test --keyring ../new-debian-archive-keyring.gpg
+sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 6FB2A1C265FFB764
+#+END_SRC
+
+* Replicating the iso
+#+BEGIN_SRC bash
+xorriso -as mkisofs -r -checksum_algorithm_iso md5,sha1 -V 'Debian 9.9 amd64 1' -o /home/doer/DOER_OS/simple-cdd/images/debian.iso -J -J -joliet-long -cache-inodes -isohybrid-mbr iso/isohdpfx.bin -b isolinux/isolinux.bin -c isolinux/boot.cat -boot-load-size 4 -boot-info-table -no-emul-boot -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat -isohybrid-apm-hfsplus iso/ iso/
+#+END_SRC
+
