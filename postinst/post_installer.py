@@ -10,6 +10,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 from gi.repository import GLib
 from gi.repository import GObject
+from gi.repository.GdkPixbuf import Pixbuf
 
 import fcntl
 import subprocess
@@ -399,9 +400,22 @@ class MyWindow(Gtk.Window):
             chbox = Gtk.CheckButton(label=name)
             chbox.connect("toggled", self.calculate)
             self.installed_list.append((chbox, name, path, size))
+            liststore = Gtk.ListStore(Pixbuf)
+            iconview = Gtk.IconView.new()
+            iconview.set_model(liststore)
+            iconview.set_item_padding(0)
+            iconview.set_margin(0)
+            iconview.set_pixbuf_column(0)
+            liststore.append(
+                [
+                    Gtk.IconTheme.get_default().load_icon(
+                        "emblem-web" if path == "online" else "drive-harddisk", 32, 0
+                    )
+                ]
+            )
+            hbox.pack_start(iconview, False, False, 6)
+            self.checkbox_vbox.pack_end(hbox, False, False, 6)
             hbox.pack_start(chbox, True, True, 6)
-
-            self.checkbox_vbox.pack_end(hbox, True, True, 6)
             Gtk.Widget.show_all(self.screens[1])
 
     def next_screen(self, widget):
