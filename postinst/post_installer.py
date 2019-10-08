@@ -124,7 +124,6 @@ class StreamTextBuffer(Gtk.TextBuffer):
             self.insert_at_cursor(out.decode("utf-8"))
         for out in iter(lambda: self.proc.stderr.read(1), b""):  #
             self.insert_at_cursor(out.decode("utf-8"))
-
         if result is not None:
             self.stop()
             if result != 0:
@@ -183,14 +182,26 @@ class MyWindow(Gtk.Window):
         self.default_list = {
             "turtleblocks": [
                 "echo Making Directory",
-                'rm -Rf "{2}/{1}"',  # TODO something else instead of deleting all files
                 'mkdir -p "{2}/{1}"',
                 "echo Cloning git",
                 'echo "This may take a while..."',
-                "git --help && sleep 10 && echo done",
-                # 'git clone "https://github.com/sugarlabs/turtleblocksjs.git" "{2}/{1}/turtleblock_git" -v',
+                'rm -Rf "{2}/temp/"',
+                'git clone "https://github.com/sugarlabs/turtleblocksjs.git" "{2}/temp/turtleblock_git" -v',
+                'rsync -av "{2}/temp/turtleblock_git" "{2}/{1}"',
+                'rm -Rf "{2}/temp"',
                 "echo Done",
-            ]
+            ],
+            "physics_video_player": [
+                "echo Making Directory",
+                'mkdir -p "{2}/{1}"',
+                "echo Cloning git",
+                'echo "This may take a while..."',
+                'rm -Rf "{2}/temp/"',
+                'git clone "https://github.com/CLIxIndia-Dev/physics-video-player.git" "{2}/temp/physics_video_player_git" -v',
+                'rsync -av "{2}/temp/physics_video_player_git" "{2}/{1}"',
+                'rm -Rf "{2}/temp"',
+                "echo Done",
+            ],
         }
         self.supported_list = {
             "kolibri_doer": [
@@ -310,6 +321,14 @@ class MyWindow(Gtk.Window):
         self.buff = StreamTextBuffer(self.commands, self.final_pbar, self.finish)
         self.buff.run()
         self.textview = Gtk.TextView.new_with_buffer(self.buff)
+        # TODO ADD Autoscroll
+        # self.buff.connect(
+        #     "changed",
+        #     lambda obj: self.textview.scroll_mark_onscreen(
+        #         self.textview, self.buff.get_mark()
+        #     ),
+        # )
+
         self.scroll.add(self.textview)
         self.screens[2].pack_end(self.scroll, True, True, 6)
 
