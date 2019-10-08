@@ -81,49 +81,50 @@ class StreamTextBuffer(Gtk.TextBuffer):
             self.commands[self.index],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
             shell=True,
         )
         self.index += 1
         self.bind_subprocess(self.proc)
 
     def bind_subprocess(self, proc):
-        unblock_fd(proc.stdout)
-        watch_id_stdout = GLib.io_add_watch(
-            channel=proc.stdout,
-            priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-            condition=self.buffer_update,
-            # func      = lambda *a: print("func") # when the condition is satisfied
-            # user_data = # user data to pass to func
-        )
-        unblock_fd(proc.stderr)
-        watch_id_stderr = GLib.io_add_watch(
-            channel=proc.stderr,
-            priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-            condition=self.buffer_update,
-            # func      = lambda *a: print("func") # when the condition is satisfied
-            # user_data = # user data to pass to func
-        )
-        watch_id_timeout = GLib.timeout_add_seconds(1, self.buffer_update)
+        # unblock_fd(proc.stdout)
+        # watch_id_stdout = GLib.io_add_watch(
+        #     channel=GLib.IOChannel(proc.stdout.fileno()),
+        #     priority_=GLib.IO_IN,
+        #     condition=self.buffer_update,
+        # )
+        # unblock_fd(proc.stderr)
+        # watch_id_stderr = GLib.io_add_watch(
+        #     channel=GLib.IOChannel(p.stderr.fileno()),
+        #     priority_=GLib.IO_IN,
+        #     condition=self.buffer_update,
+        # )
+        watch_id_timeout = GLib.timeout_add(200, self.buffer_update)
 
-        self.IO_WATCH_ID = (watch_id_stdout, watch_id_stderr, watch_id_timeout)
+        self.IO_WATCH_ID = [watch_id_timeout]
+        # self.IO_WATCH_ID = (watch_id_stdout, watch_id_stderr)
         return self.IO_WATCH_ID
 
-    def buffer_update(self, stream=None, condition=None):
+    def buffer_update(self):
         # self.proc.wait()
-        if (
-            condition == (GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP)
-            or condition is None
-        ):
-            strout = self.proc.stdout.read()
-            strerr = self.proc.stderr.read()
-            print(strout)
-            print(strerr)
-            if strout is not None or strerr is not None:
-                self.insert_at_cursor(strout)
-                self.insert_at_cursor(strerr)
+        # stdout = self.proc.stdout.read()
+        # stderr = self.proc.stderr.read()
+        #
 
+        # if stdout is not None:
+        #     self.insert_at_cursor(
+        #         stdout if type(stdout) is str else stdout.decode("utf-8")
+        #     )
+        # if stderr is not None:
+        #     self.insert_at_cursor(
+        #         stderr if type(stderr) is str else stderr.decode("utf-8")
+        #     )
         result = self.proc.poll()
+        for out in iter(lambda: self.proc.stdout.read(1), b""):  #
+            self.insert_at_cursor(out.decode("utf-8"))
+        for out in iter(lambda: self.proc.stderr.read(1), b""):  #
+            self.insert_at_cursor(out.decode("utf-8"))
+
         if result is not None:
             self.stop()
             if result != 0:
@@ -184,10 +185,10 @@ class MyWindow(Gtk.Window):
                 "echo Making Directory",
                 'rm -Rf "{2}/{1}"',  # TODO something else instead of deleting all files
                 'mkdir -p "{2}/{1}"',
-                "git --help",
                 "echo Cloning git",
                 'echo "This may take a while..."',
-                'git clone "https://github.com/sugarlabs/turtleblocksjs.git" "{2}/{1}/turtleblock_git"',
+                "git --help && sleep 10 && echo done",
+                # 'git clone "https://github.com/sugarlabs/turtleblocksjs.git" "{2}/{1}/turtleblock_git" -v',
                 "echo Done",
             ]
         }
@@ -336,9 +337,9 @@ class MyWindow(Gtk.Window):
             parent=self,
             action=Gtk.FileChooserAction.SELECT_FOLDER,
             buttons=(
-                Gtk.STOCK_CANCEL,
+                "_Cancel",
                 Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_OK,
+                "_OK",
                 Gtk.ResponseType.ACCEPT,
             ),
         )
@@ -361,13 +362,13 @@ class MyWindow(Gtk.Window):
                         get_size(os.path.join(self.path_to_dest, directory)),
                     ]
 
-        print(self.found_images)
+        # print(self.found_images)
         for name in self.default_list.keys():
             self.found_images.setdefault(
                 name, ["online", 1000]
             )  # TODO Add correct git repo sizes
             #
-        print(self.found_images)
+        # print(self.found_images)
         for widget in self.checkbox_vbox:
             self.checkbox_vbox.remove(widget)
 
@@ -375,6 +376,7 @@ class MyWindow(Gtk.Window):
             path = items[0]
             size = items[1]
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
             chbox = Gtk.CheckButton(label=name)
             chbox.connect("toggled", self.calculate)
             self.installed_list.append((chbox, name, path, size))
@@ -397,9 +399,9 @@ class MyWindow(Gtk.Window):
 def main():
     win = MyWindow()
     global PATH_TO_STORE
-    print(PATH_TO_STORE)
+    # print(PATH_TO_STORE)
     PATH_TO_STORE = os.path.abspath(os.path.expanduser(PATH_TO_STORE))
-    print(PATH_TO_STORE)
+    # print(PATH_TO_STORE)
     os.popen("mkdir -p {}".format(PATH_TO_STORE))
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
