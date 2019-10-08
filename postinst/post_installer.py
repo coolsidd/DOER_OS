@@ -137,85 +137,6 @@ class StreamTextBuffer(Gtk.TextBuffer):
             return True
 
 
-# class StreamTextBuffer(Gtk.TextBuffer):
-#     """TextBuffer read command output syncronously"""
-
-#     def __init__(self, commands, pbar, callback, run_auto=True):
-#         Gtk.TextBuffer.__init__(self)
-#         self.IO_WATCH_ID = tuple()
-#         self.commands = commands
-#         self.run_auto = run_auto
-#         self.pbar = pbar
-#         self.callback = callback
-#         self.index = 0
-
-#     def stop(self):
-#         if len(self.IO_WATCH_ID):
-#             for id_ in self.IO_WATCH_ID:
-#                 # remove subprocess io_watch if not removed will
-#                 # creates lots of cpu cycles, when process dies
-#                 GLib.source_remove(id_)
-#             self.IO_WATCH_ID = tuple()
-#             self.proc.terminate()  # send SIGTERM
-#         return
-
-#     def run(self):
-#         self.pbar.set_fraction(self.index / len(self.commands))
-#         if self.index >= len(self.commands):
-#             self.insert_at_cursor("All applications transferred successfully")
-#             self.stop()
-#             self.callback()
-#             return
-#         self.insert_at_cursor(self.commands[self.index] + "\n")
-#         self.proc = subprocess.Popen(
-#             self.commands[self.index],
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             universal_newlines=True,
-#             shell=True,
-#         )
-#         self.index += 1
-#         self.stop()
-#         self.bind_subprocess(self.proc)
-
-#     def bind_subprocess(self, proc):
-#         unblock_fd(proc.stdout)
-#         watch_id_stdout = GLib.io_add_watch(
-#             channel=proc.stdout,
-#             priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-#             condition=self.buffer_update,
-#             # func      = lambda *a: print("func") # when the condition is satisfied
-#             # user_data = # user data to pass to func
-#         )
-#         unblock_fd(proc.stderr)
-#         watch_id_stderr = GLib.io_add_watch(
-#             channel=proc.stderr,
-#             priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-#             condition=self.buffer_update,
-#             # func      = lambda *a: print("func") # when the condition is satisfied
-#             # user_data = # user data to pass to func
-#         )
-#         watch_id_timeout = GLib.timeout_add_seconds(1, self.buffer_update)
-
-#         self.IO_WATCH_ID = (watch_id_stdout, watch_id_stderr, watch_id_timeout)
-#         return self.IO_WATCH_ID
-
-#     def buffer_update(self, stream=None, condition=None):
-#         # self.proc.wait()
-#         if condition == (GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP):
-#             stre = stream.read()
-#             if stre is not None:
-#                 self.insert_at_cursor(stre)
-
-#         if self.proc.poll() is not None:
-#             self.stop()
-#             if self.run_auto:
-#                 self.run()
-#             return False
-#         else:
-#             return True
-
-
 class MyWindow(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title="Install DOER packages")
@@ -258,6 +179,18 @@ class MyWindow(Gtk.Window):
         # 1 -> name
         # 2 -> path_to_store (~/.doer)
         # 3 -> path_to_dest (final directory where the tar files are located)
+        self.default_list = {
+            "turtleblocks": [
+                "echo Making Directory",
+                'rm -Rf "{2}/{1}"',  # TODO something else instead of deleting all files
+                'mkdir -p "{2}/{1}"',
+                "git --help",
+                "echo Cloning git",
+                'echo "This may take a while..."',
+                'git clone "https://github.com/sugarlabs/turtleblocksjs.git" "{2}/{1}/turtleblock_git"',
+                "echo Done",
+            ]
+        }
         self.supported_list = {
             "kolibri_doer": [
                 "echo Making Directory",
@@ -354,12 +287,24 @@ class MyWindow(Gtk.Window):
     def store(self, widget):
         for chbox, name, path, size in self.installed_list:
             if chbox.get_active():
-                self.commands.extend(
-                    x.format(
-                        size, name, PATH_TO_STORE, os.path.join(self.path_to_dest, name)
+                if path != "online":
+                    self.commands.extend(
+                        x.format(
+                            size,
+                            name,
+                            PATH_TO_STORE,
+                            os.path.join(self.path_to_dest, name),
+                        )
+                        for x in self.supported_list[name]
                     )
-                    for x in self.supported_list[name]
-                )
+                elif name in self.default_list:
+                    self.commands.extend(
+                        x.format(size, name, PATH_TO_STORE, path)
+                        for x in self.default_list[name]
+                    )
+                else:
+                    raise KeyError("Unknown name crept into install list")
+
         self.scroll = Gtk.ScrolledWindow()
         self.buff = StreamTextBuffer(self.commands, self.final_pbar, self.finish)
         self.buff.run()
@@ -371,8 +316,7 @@ class MyWindow(Gtk.Window):
         self.button_finished.set_sensitive(True)
 
     def calculate(self, widget):
-        if self.path_to_dest is not None:
-            self.free = shutil.disk_usage(PATH_TO_STORE).free
+        self.free = shutil.disk_usage(PATH_TO_STORE).free
         self.utilized = 0
         for chbox, name, path, size in self.installed_list:
             if chbox.get_active():
@@ -394,7 +338,7 @@ class MyWindow(Gtk.Window):
             buttons=(
                 Gtk.STOCK_CANCEL,
                 Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_SAVE,
+                Gtk.STOCK_OK,
                 Gtk.ResponseType.ACCEPT,
             ),
         )
@@ -418,6 +362,15 @@ class MyWindow(Gtk.Window):
                     ]
 
         print(self.found_images)
+        for name in self.default_list.keys():
+            self.found_images.setdefault(
+                name, ["online", 1000]
+            )  # TODO Add correct git repo sizes
+            #
+        print(self.found_images)
+        for widget in self.checkbox_vbox:
+            self.checkbox_vbox.remove(widget)
+
         for name, items in self.found_images.items():
             path = items[0]
             size = items[1]
@@ -426,6 +379,7 @@ class MyWindow(Gtk.Window):
             chbox.connect("toggled", self.calculate)
             self.installed_list.append((chbox, name, path, size))
             hbox.pack_start(chbox, True, True, 6)
+
             self.checkbox_vbox.pack_end(hbox, True, True, 6)
             Gtk.Widget.show_all(self.screens[1])
 
