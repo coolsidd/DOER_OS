@@ -10,6 +10,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 from gi.repository import GLib
 from gi.repository import GObject
+from gi.repository.GdkPixbuf import Pixbuf
 
 import fcntl
 import subprocess
@@ -81,49 +82,49 @@ class StreamTextBuffer(Gtk.TextBuffer):
             self.commands[self.index],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
             shell=True,
         )
         self.index += 1
         self.bind_subprocess(self.proc)
 
     def bind_subprocess(self, proc):
-        unblock_fd(proc.stdout)
-        watch_id_stdout = GLib.io_add_watch(
-            channel=proc.stdout,
-            priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-            condition=self.buffer_update,
-            # func      = lambda *a: print("func") # when the condition is satisfied
-            # user_data = # user data to pass to func
-        )
-        unblock_fd(proc.stderr)
-        watch_id_stderr = GLib.io_add_watch(
-            channel=proc.stderr,
-            priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-            condition=self.buffer_update,
-            # func      = lambda *a: print("func") # when the condition is satisfied
-            # user_data = # user data to pass to func
-        )
-        watch_id_timeout = GLib.timeout_add_seconds(1, self.buffer_update)
+        # unblock_fd(proc.stdout)
+        # watch_id_stdout = GLib.io_add_watch(
+        #     channel=GLib.IOChannel(proc.stdout.fileno()),
+        #     priority_=GLib.IO_IN,
+        #     condition=self.buffer_update,
+        # )
+        # unblock_fd(proc.stderr)
+        # watch_id_stderr = GLib.io_add_watch(
+        #     channel=GLib.IOChannel(p.stderr.fileno()),
+        #     priority_=GLib.IO_IN,
+        #     condition=self.buffer_update,
+        # )
+        watch_id_timeout = GLib.timeout_add(200, self.buffer_update)
 
-        self.IO_WATCH_ID = (watch_id_stdout, watch_id_stderr, watch_id_timeout)
+        self.IO_WATCH_ID = [watch_id_timeout]
+        # self.IO_WATCH_ID = (watch_id_stdout, watch_id_stderr)
         return self.IO_WATCH_ID
 
-    def buffer_update(self, stream=None, condition=None):
+    def buffer_update(self):
         # self.proc.wait()
-        if (
-            condition == (GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP)
-            or condition is None
-        ):
-            strout = self.proc.stdout.read()
-            strerr = self.proc.stderr.read()
-            print(strout)
-            print(strerr)
-            if strout is not None or strerr is not None:
-                self.insert_at_cursor(strout)
-                self.insert_at_cursor(strerr)
+        # stdout = self.proc.stdout.read()
+        # stderr = self.proc.stderr.read()
+        #
 
+        # if stdout is not None:
+        #     self.insert_at_cursor(
+        #         stdout if type(stdout) is str else stdout.decode("utf-8")
+        #     )
+        # if stderr is not None:
+        #     self.insert_at_cursor(
+        #         stderr if type(stderr) is str else stderr.decode("utf-8")
+        #     )
         result = self.proc.poll()
+        for out in iter(lambda: self.proc.stdout.read(1), b""):  #
+            self.insert_at_cursor(out.decode("utf-8"))
+        for out in iter(lambda: self.proc.stderr.read(1), b""):  #
+            self.insert_at_cursor(out.decode("utf-8"))
         if result is not None:
             self.stop()
             if result != 0:
@@ -135,85 +136,6 @@ class StreamTextBuffer(Gtk.TextBuffer):
             return False
         else:
             return True
-
-
-# class StreamTextBuffer(Gtk.TextBuffer):
-#     """TextBuffer read command output syncronously"""
-
-#     def __init__(self, commands, pbar, callback, run_auto=True):
-#         Gtk.TextBuffer.__init__(self)
-#         self.IO_WATCH_ID = tuple()
-#         self.commands = commands
-#         self.run_auto = run_auto
-#         self.pbar = pbar
-#         self.callback = callback
-#         self.index = 0
-
-#     def stop(self):
-#         if len(self.IO_WATCH_ID):
-#             for id_ in self.IO_WATCH_ID:
-#                 # remove subprocess io_watch if not removed will
-#                 # creates lots of cpu cycles, when process dies
-#                 GLib.source_remove(id_)
-#             self.IO_WATCH_ID = tuple()
-#             self.proc.terminate()  # send SIGTERM
-#         return
-
-#     def run(self):
-#         self.pbar.set_fraction(self.index / len(self.commands))
-#         if self.index >= len(self.commands):
-#             self.insert_at_cursor("All applications transferred successfully")
-#             self.stop()
-#             self.callback()
-#             return
-#         self.insert_at_cursor(self.commands[self.index] + "\n")
-#         self.proc = subprocess.Popen(
-#             self.commands[self.index],
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             universal_newlines=True,
-#             shell=True,
-#         )
-#         self.index += 1
-#         self.stop()
-#         self.bind_subprocess(self.proc)
-
-#     def bind_subprocess(self, proc):
-#         unblock_fd(proc.stdout)
-#         watch_id_stdout = GLib.io_add_watch(
-#             channel=proc.stdout,
-#             priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-#             condition=self.buffer_update,
-#             # func      = lambda *a: print("func") # when the condition is satisfied
-#             # user_data = # user data to pass to func
-#         )
-#         unblock_fd(proc.stderr)
-#         watch_id_stderr = GLib.io_add_watch(
-#             channel=proc.stderr,
-#             priority_=GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP,
-#             condition=self.buffer_update,
-#             # func      = lambda *a: print("func") # when the condition is satisfied
-#             # user_data = # user data to pass to func
-#         )
-#         watch_id_timeout = GLib.timeout_add_seconds(1, self.buffer_update)
-
-#         self.IO_WATCH_ID = (watch_id_stdout, watch_id_stderr, watch_id_timeout)
-#         return self.IO_WATCH_ID
-
-#     def buffer_update(self, stream=None, condition=None):
-#         # self.proc.wait()
-#         if condition == (GLib.IO_IN | GLib.IO_PRI | GLib.IO_ERR | GLib.IO_HUP):
-#             stre = stream.read()
-#             if stre is not None:
-#                 self.insert_at_cursor(stre)
-
-#         if self.proc.poll() is not None:
-#             self.stop()
-#             if self.run_auto:
-#                 self.run()
-#             return False
-#         else:
-#             return True
 
 
 class MyWindow(Gtk.Window):
@@ -258,6 +180,30 @@ class MyWindow(Gtk.Window):
         # 1 -> name
         # 2 -> path_to_store (~/.doer)
         # 3 -> path_to_dest (final directory where the tar files are located)
+        self.default_list = {
+            "turtleblocks": [
+                "echo Making Directory",
+                'mkdir -p "{2}/{1}"',
+                "echo Cloning git",
+                'echo "This may take a while..."',
+                'rm -Rf "{2}/temp/"',
+                'git clone "https://github.com/sugarlabs/turtleblocksjs.git" "{2}/temp/turtleblock_git" -v',
+                'rsync -av "{2}/temp/turtleblock_git" "{2}/{1}"',
+                'rm -Rf "{2}/temp"',
+                "echo Done",
+            ],
+            "physics_video_player": [
+                "echo Making Directory",
+                'mkdir -p "{2}/{1}"',
+                "echo Cloning git",
+                'echo "This may take a while..."',
+                'rm -Rf "{2}/temp/"',
+                'git clone "https://github.com/CLIxIndia-Dev/physics-video-player.git" "{2}/temp/physics_video_player_git" -v',
+                'rsync -av "{2}/temp/physics_video_player_git" "{2}/{1}"',
+                'rm -Rf "{2}/temp"',
+                "echo Done",
+            ],
+        }
         self.supported_list = {
             "kolibri_doer": [
                 "echo Making Directory",
@@ -354,16 +300,36 @@ class MyWindow(Gtk.Window):
     def store(self, widget):
         for chbox, name, path, size in self.installed_list:
             if chbox.get_active():
-                self.commands.extend(
-                    x.format(
-                        size, name, PATH_TO_STORE, os.path.join(self.path_to_dest, name)
+                if path != "online":
+                    self.commands.extend(
+                        x.format(
+                            size,
+                            name,
+                            PATH_TO_STORE,
+                            os.path.join(self.path_to_dest, name),
+                        )
+                        for x in self.supported_list[name]
                     )
-                    for x in self.supported_list[name]
-                )
+                elif name in self.default_list:
+                    self.commands.extend(
+                        x.format(size, name, PATH_TO_STORE, path)
+                        for x in self.default_list[name]
+                    )
+                else:
+                    raise KeyError("Unknown name crept into install list")
+
         self.scroll = Gtk.ScrolledWindow()
         self.buff = StreamTextBuffer(self.commands, self.final_pbar, self.finish)
         self.buff.run()
         self.textview = Gtk.TextView.new_with_buffer(self.buff)
+        # TODO ADD Autoscroll
+        # self.buff.connect(
+        #     "changed",
+        #     lambda obj: self.textview.scroll_mark_onscreen(
+        #         self.textview, self.buff.get_mark()
+        #     ),
+        # )
+
         self.scroll.add(self.textview)
         self.screens[2].pack_end(self.scroll, True, True, 6)
 
@@ -371,8 +337,7 @@ class MyWindow(Gtk.Window):
         self.button_finished.set_sensitive(True)
 
     def calculate(self, widget):
-        if self.path_to_dest is not None:
-            self.free = shutil.disk_usage(PATH_TO_STORE).free
+        self.free = shutil.disk_usage(PATH_TO_STORE).free
         self.utilized = 0
         for chbox, name, path, size in self.installed_list:
             if chbox.get_active():
@@ -392,9 +357,9 @@ class MyWindow(Gtk.Window):
             parent=self,
             action=Gtk.FileChooserAction.SELECT_FOLDER,
             buttons=(
-                Gtk.STOCK_CANCEL,
+                "_Cancel",
                 Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_SAVE,
+                "_OK",
                 Gtk.ResponseType.ACCEPT,
             ),
         )
@@ -417,16 +382,40 @@ class MyWindow(Gtk.Window):
                         get_size(os.path.join(self.path_to_dest, directory)),
                     ]
 
-        print(self.found_images)
+        # print(self.found_images)
+        for name in self.default_list.keys():
+            self.found_images.setdefault(
+                name, ["online", 1000]
+            )  # TODO Add correct git repo sizes
+            #
+        # print(self.found_images)
+        for widget in self.checkbox_vbox:
+            self.checkbox_vbox.remove(widget)
+
         for name, items in self.found_images.items():
             path = items[0]
             size = items[1]
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
             chbox = Gtk.CheckButton(label=name)
             chbox.connect("toggled", self.calculate)
             self.installed_list.append((chbox, name, path, size))
+            liststore = Gtk.ListStore(Pixbuf)
+            iconview = Gtk.IconView.new()
+            iconview.set_model(liststore)
+            iconview.set_item_padding(0)
+            iconview.set_margin(0)
+            iconview.set_pixbuf_column(0)
+            liststore.append(
+                [
+                    Gtk.IconTheme.get_default().load_icon(
+                        "emblem-web" if path == "online" else "drive-harddisk", 32, 0
+                    )
+                ]
+            )
+            hbox.pack_start(iconview, False, False, 6)
+            self.checkbox_vbox.pack_end(hbox, False, False, 6)
             hbox.pack_start(chbox, True, True, 6)
-            self.checkbox_vbox.pack_end(hbox, True, True, 6)
             Gtk.Widget.show_all(self.screens[1])
 
     def next_screen(self, widget):
@@ -443,9 +432,9 @@ class MyWindow(Gtk.Window):
 def main():
     win = MyWindow()
     global PATH_TO_STORE
-    print(PATH_TO_STORE)
+    # print(PATH_TO_STORE)
     PATH_TO_STORE = os.path.abspath(os.path.expanduser(PATH_TO_STORE))
-    print(PATH_TO_STORE)
+    # print(PATH_TO_STORE)
     os.popen("mkdir -p {}".format(PATH_TO_STORE))
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
